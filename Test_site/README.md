@@ -1,4 +1,4 @@
-# Time-Series Data Fetcher
+# Fetch TimeSeries Data
 
 This script fetches time-series data from TimeSeries API and saves it to a CSV file in the `output_data` folder.
 
