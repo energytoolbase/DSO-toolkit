@@ -42,20 +42,26 @@ def fill_missing_times(rows, header):
             filled_rows.append(rows[time_index])
             time_index += 1
         else:
-            # Create a row with NaN values for missing times
             filled_rows.append([current_time, convert_time(current_time)] + ["NaN"] * (len(header) - 2))
-        current_time += 900  # Increment by 15 minutes (900 seconds)
+        current_time += 900  # 15 minutes in seconds
 
-    # Fill NaN values with data from last week
+    # Fill NaN values with data from previous week, then next week, then two weeks ahead
     for i in range(len(filled_rows)):
-        for j in range(2, len(header)):  # Skip the first two columns (Time (Epoch) and Time (UTC))
+        for j in range(2, len(header)):
             if filled_rows[i][j] == "NaN":
-                previous_week_time = filled_rows[i][0] - 7 * 24 * 3600  # Subtract 7 days in seconds
-                # Find the corresponding row from the previous week
-                for row in filled_rows:
-                    if row[0] == previous_week_time:
-                        filled_rows[i][j] = row[j]
-                        break
+                current_epoch = filled_rows[i][0]
+                filled = False
+
+                # Try previous week
+                for offset in [-7, 7, 14]:
+                    ref_time = current_epoch + offset * 24 * 3600
+                    for row in filled_rows:
+                        if row[0] == ref_time and row[j] != "NaN":
+                            filled_rows[i][j] = row[j]
+                            filled = True
+                            break
+                    if filled:
+                        break  # Stop checking once we have filled the value
 
     return filled_rows
 
@@ -77,7 +83,13 @@ def save_to_csv(data, filename: str):
     values = {channel["channel"]: list(reversed(channel["values"])) for channel in time_series_data}  # Reverse values to match reversed times
 
     for i, epoch_time in enumerate(times):
-        row = [epoch_time, time_series_human[i]] + [values[channel][i] for channel in header[2:]]
+        row = [epoch_time, time_series_human[i]]
+        for channel in header[2:]:
+            values_list = values.get(channel, [])
+            if i < len(values_list):
+                row.append(values_list[i])
+            else:
+                row.append("NaN")
         rows.append(row)
 
     # Fill missing times
@@ -89,6 +101,9 @@ def save_to_csv(data, filename: str):
         writer = csv.writer(file)
         writer.writerow(header)
         writer.writerows(rows)
+
+
+
 
 @app.command()
 def main(
